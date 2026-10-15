@@ -1,0 +1,19 @@
+{
+  "name": "Night-Shift Fat-Loss & Macro Tracker",
+  "short_name": "Tracker",
+  "description": "Personal Fat-Loss, Macro, Sleep & Habit Tracker",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
