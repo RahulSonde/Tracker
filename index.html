@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fat-Loss, Macro & Habit Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0b0f17; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background-color: #151c28; border: 1px solid #263147; border-radius: 0.75rem; }
+    input, select { background-color: #0b0f17; border: 1px solid #2e3c56; color: #f8fafc; border-radius: 0.5rem; padding: 0.45rem 0.65rem; }
+    input:focus, select:focus { outline: none; border-color: #3b82f6; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 max-w-6xl mx-auto space-y-6">
+
+  <!-- HEADER & DATE CONTROLS -->
+  <header class="card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-white flex items-center gap-2">
+        <span>Personal Fat-Loss & Nutrition Tracker</span>
+        <span class="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 px-2.5 py-0.5 rounded-full">84 kg → 70 kg</span>
+      </h1>
+      <p class="text-xs text-slate-400 mt-0.5">Auto-saved permanently to device storage • Non-Veg / Egg / Veg Indian Database</p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <button onclick="changeDate(-1)" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700">◀ Prev</button>
+      <input type="date" id="activeDateInput" onchange="onDatePick(this.value)" class="text-xs font-semibold" />
+      <button onclick="goToday()" class="px-3 py-1.5 text-xs font-medium bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 rounded-lg border border-blue-500/40">Today</button>
+      <button onclick="changeDate(1)" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700">Next ▶</button>
+    </div>
+  </header>
+
+  <!-- TOP SUMMARY METRIC CARDS -->
+  <section class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="card p-3.5">
+      <div class="text-xs text-slate-400 uppercase">Maintenance TDEE</div>
+      <div class="text-2xl font-bold text-white mt-1" id="cardTdee">2,194</div>
+      <div class="text-xs text-slate-400 mt-0.5">BMR: <span id="cardBmr">1,828</span> kcal</div>
+    </div>
+    <div class="card p-3.5">
+      <div class="text-xs text-slate-400 uppercase">Calorie Target</div>
+      <div class="text-2xl font-bold text-blue-400 mt-1" id="cardTarget">1,799</div>
+      <div class="text-xs text-emerald-400 mt-0.5" id="cardDeficit">-395 kcal planned deficit</div>
+    </div>
+    <div class="card p-3.5">
+      <div class="text-xs text-slate-400 uppercase">Consumed Today</div>
+      <div class="text-2xl font-bold text-white mt-1" id="cardConsumed">0</div>
+      <div class="text-xs text-slate-400 mt-0.5"><span id="cardMealCount">0</span> items logged</div>
+    </div>
+    <div class="card p-3.5">
+      <div class="text-xs text-slate-400 uppercase">Remaining Budget</div>
+      <div class="text-2xl font-bold text-emerald-400 mt-1" id="cardRemaining">1,799</div>
+      <div class="text-xs text-slate-400 mt-0.5" id="cardActualDeficit">Est. vs TDEE: -2,194 kcal</div>
+    </div>
+    <div class="card p-3.5 col-span-2 md:col-span-1">
+      <div class="text-xs text-slate-400 uppercase">Weight Trend (7d Avg)</div>
+      <div class="text-2xl font-bold text-purple-400 mt-1" id="cardWeightAvg">84.0 kg</div>
+      <div class="text-xs text-slate-400 mt-0.5" id="cardWeightToGo">14.0 kg to 70 kg goal</div>
+    </div>
+  </section>
+
+  <!-- UPDATED DAILY MACRO DASHBOARD TABLE -->
+  <section class="card p-4 space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <h2 class="text-base font-bold text-white">Daily Macronutrient Dashboard</h2>
+      <div class="flex gap-2">
+        <button onclick="openSummaryModal()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-medium">Generate Daily Summary Report</button>
+        <button onclick="resetTodayLog()" class="text-xs bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 px-3 py-1.5 rounded-lg font-medium">Reset Today's Log</button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left border-collapse">
+        <thead>
+          <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase">
+            <th class="py-2 px-3">Daily Metric</th>
+            <th class="py-2 px-3">Consumed</th>
+            <th class="py-2 px-3">Target</th>
+            <th class="py-2 px-3">Remaining / Status</th>
+            <th class="py-2 px-3 w-1/3">Progress</th>
+          </tr>
+        </thead>
+        <tbody id="macroDashboardBody" class="divide-y divide-slate-800"></tbody>
+      </table>
+    </div>
+    <div id="dailyObservationBox" class="text-xs bg-slate-900/90 border border-slate-800 rounded-lg p-3 text-slate-300"></div>
+  </section>
+
+  <!-- MAIN 2-COLUMN WORKSPACE: FOOD LOGGER & HABIT / WEIGHT TRACKER -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT 7 COLS: INDIAN MEAL LOGGER & FOOD TABLE -->
+    <div class="lg:col-span-7 space-y-6">
+
+      <!-- ADD MEAL CARD -->
+      <section class="card p-4 space-y-4">
+        <h2 class="text-base font-bold text-white">Log Indian Meal or Beverage</h2>
+
+        <!-- Preset Selector -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+          <div class="sm:col-span-6">
+            <label class="block text-xs text-slate-400 mb-1">Preset Indian Food (Non-Veg / Egg / Veg)</label>
+            <select id="presetFoodSelect" class="w-full text-sm"></select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs text-slate-400 mb-1">Servings</label>
+            <input type="number" id="presetQty" value="1" min="0.25" step="0.25" class="w-full text-sm" />
+          </div>
+          <div class="sm:col-span-4">
+            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer mb-2">
+              <input type="checkbox" id="extraOilToggle" class="rounded" />
+              <span>+1 tsp Oil/Ghee (+45 kcal, 5g F)</span>
+            </label>
+            <button onclick="logPresetMeal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm py-2 rounded-lg">+ Log Selected Food</button>
+          </div>
+        </div>
+
+        <!-- Custom Food Collapsible -->
+        <details class="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+          <summary class="text-xs font-semibold text-blue-400 cursor-pointer">+ Log Custom Food / Restaurant Dish or Save New Preset</summary>
+          <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-3">
+            <input type="text" id="custName" placeholder="Food name (e.g. Surmai Fry)" class="col-span-2 text-xs" />
+            <input type="text" id="custPortion" placeholder="Portion (e.g. 150 g)" class="col-span-2 text-xs" />
+            <input type="number" id="custKcal" placeholder="Calories (kcal)" class="text-xs" />
+            <input type="number" id="custP" placeholder="Protein (g)" step="0.1" class="text-xs" />
+            <input type="number" id="custC" placeholder="Carbs (g)" step="0.1" class="text-xs" />
+            <input type="number" id="custF" placeholder="Fat (g)" step="0.1" class="text-xs" />
+            <label class="col-span-2 flex items-center gap-1.5 text-xs text-slate-300">
+              <input type="checkbox" id="saveCustomToPresets" checked />
+              <span>Save to my food dropdown</span>
+            </label>
+            <button onclick="logCustomMeal()" class="col-span-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium py-2 rounded-lg">Add Custom Item</button>
+          </div>
+        </details>
+      </section>
+
+      <!-- TODAY'S FOOD LOGGING TABLE -->
+      <section class="card p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-white">Today's Logged Meals</h2>
+          <span class="text-xs text-slate-400">Click ✕ to remove or correct an entry</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase">
+                <th class="py-2 px-2">Food Item</th>
+                <th class="py-2 px-2">Quantity</th>
+                <th class="py-2 px-2">Calories</th>
+                <th class="py-2 px-2">Protein</th>
+                <th class="py-2 px-2">Carbs</th>
+                <th class="py-2 px-2">Fat</th>
+                <th class="py-2 px-2"></th>
+              </tr>
+            </thead>
+            <tbody id="mealLogBody" class="divide-y divide-slate-800"></tbody>
+            <tfoot id="mealLogFoot" class="border-t-2 border-slate-700 font-bold text-white bg-slate-900/50"></tfoot>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT 5 COLS: WEEKLY HABIT STREAK & WEIGHT / PROFILE -->
+    <div class="lg:col-span-5 space-y-6">
+
+      <!-- WEEKLY HABIT TRACKER & STREAK CHART -->
+      <section class="card p-4 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-white">Weekly Habit Tracker & Streak Chart</h2>
+            <p class="text-xs text-slate-400">Current Week (Mon–Sun) • Check daily goals</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-center border-collapse">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400" id="habitWeekHeader"></tr>
+            </thead>
+            <tbody id="habitGridBody" class="divide-y divide-slate-800"></tbody>
+          </table>
+        </div>
+
+        <!-- 7-Day Streak Bar Chart -->
+        <div class="pt-2">
+          <div class="text-xs text-slate-400 mb-2 flex justify-between">
+            <span>Weekly Daily Completion %</span>
+            <span id="weeklyAvgBadge" class="text-blue-400 font-semibold">0% Weekly Consistency</span>
+          </div>
+          <div id="streakChartBars" class="grid grid-cols-7 gap-2 items-end h-28 pt-4 px-2 bg-slate-900/60 rounded-lg border border-slate-800"></div>
+        </div>
+      </section>
+
+      <!-- MORNING WEIGH-IN & 7-DAY ROLLING AVERAGE -->
+      <section class="card p-4 space-y-3">
+        <h2 class="text-base font-bold text-white">Morning Fasted Weight Log</h2>
+        <p class="text-xs text-slate-400">Weigh in morning after bathroom, before food. Focus on the 7-day rolling average, not daily water fluctuations.</p>
+        <div class="flex gap-2">
+          <input type="number" id="weightInput" step="0.1" placeholder="Today's weight (e.g. 83.8)" class="text-sm flex-1" />
+          <button onclick="saveTodayWeight()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-4 py-2 rounded-lg">Log Weight (kg)</button>
+        </div>
+        <div id="weightHistoryList" class="text-xs text-slate-300 space-y-1 max-h-36 overflow-y-auto pt-1"></div>
+      </section>
+
+      <!-- PROFILE TARGETS & BACKUP / EXPORT -->
+      <section class="card p-4 space-y-3">
+        <details>
+          <summary class="text-sm font-bold text-white cursor-pointer">Profile Settings & Data Backup (CSV / JSON)</summary>
+          <div class="space-y-3 mt-3 pt-3 border-t border-slate-800 text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-slate-400">Current Weight (kg)</label>
+                <input type="number" id="profWeight" step="0.1" class="w-full mt-0.5" onchange="updateProfile()" />
+              </div>
+              <div>
+                <label class="text-slate-400">Target Weight (kg)</label>
+                <input type="number" id="profTargetWeight" step="0.1" class="w-full mt-0.5" onchange="updateProfile()" />
+              </div>
+              <div>
+                <label class="text-slate-400">Activity Multiplier</label>
+                <select id="profActivity" class="w-full mt-0.5" onchange="updateProfile()">
+                  <option value="1.2">Sedentary (1.2x - Desk + 3k steps)</option>
+                  <option value="1.375">Lightly Active (1.375x - Gym 1-3d/wk)</option>
+                  <option value="1.55">Moderately Active (1.55x - Gym 3-5d/wk)</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-slate-400">Deficit %</label>
+                <input type="number" id="profDeficit" min="10" max="25" class="w-full mt-0.5" onchange="updateProfile()" />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 pt-2">
+              <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700">Export All Meals (.CSV)</button>
+              <button onclick="exportJSON()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700">Backup Full Database (.JSON)</button>
+              <label class="bg-slate-800 hover:bg-slate-700 text-blue-300 px-3 py-1.5 rounded border border-slate-700 cursor-pointer">
+                Restore JSON <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
+              </label>
+            </div>
+          </div>
+        </details>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- DAILY SUMMARY REPORT MODAL -->
+  <div id="summaryModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+    <div class="card max-w-xl w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <h3 class="text-base font-bold text-white">Daily Fat-Loss Report</h3>
+        <button onclick="closeSummaryModal()" class="text-slate-400 hover:text-white text-sm">✕ Close</button>
+      </div>
+      <div id="summaryModalContent" class="text-xs text-slate-200 space-y-3 leading-relaxed"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'rahul_fatloss_tracker_v1';
+
+    const DEFAULT_FOODS = [
+      // Eggs & Non-Veg
+      { name: "Boiled Whole Egg", portion: "1 large (50 g)", kcal: 72, p: 6.3, c: 0.4, f: 5.0 },
+      { name: "Boiled Egg Whites", portion: "3 large whites", kcal: 51, p: 10.8, c: 0.7, f: 0.2 },
+      { name: "Egg Bhurji / Omelette (2 eggs + 1 tsp oil)", portion: "1 serving", kcal: 190, p: 12.6, c: 1.5, f: 15.0 },
+      { name: "Chicken Breast (Cooked, 1 tsp oil)", portion: "150 g cooked", kcal: 290, p: 45.0, c: 0.0, f: 10.0 },
+      { name: "Home Chicken Curry (Bone-in / Gravy)", portion: "1 bowl (200 g)", kcal: 320, p: 28.0, c: 8.0, f: 19.0 },
+      { name: "Grilled / Pan-Seared Fish (Surmai / Rohu)", portion: "150 g cooked", kcal: 240, p: 32.0, c: 1.0, f: 11.5 },
+      // Indian Breads & Rice
+      { name: "Whole Wheat Chapati (no ghee)", portion: "1 medium (35 g)", kcal: 100, p: 3.3, c: 20.0, f: 0.8 },
+      { name: "Jowar / Bajra Bhakri", portion: "1 medium (60 g)", kcal: 160, p: 4.5, c: 32.0, f: 1.2 },
+      { name: "Steamed White Rice (Cooked)", portion: "150 g cooked", kcal: 195, p: 4.0, c: 42.0, f: 0.4 },
+      // Dal, Legumes & Breakfast
+      { name: "Dal Tadka (Toor/Moong with 1 tsp oil)", portion: "1 medium bowl (150 g)", kcal: 185, p: 8.2, c: 24.5, f: 6.0 },
+      { name: "Rajma / Chole Masala", portion: "1 medium bowl (180 g)", kcal: 240, p: 11.0, c: 34.0, f: 7.0 },
+      { name: "Poha with Peanuts", portion: "1 plate (180 g)", kcal: 270, p: 5.5, c: 46.0, f: 7.0 },
+      { name: "Idli (Plain Steamed)", portion: "2 medium pieces", kcal: 130, p: 4.0, c: 26.0, f: 0.6 },
+      { name: "Moong Sprouts Salad (Raw/Steamed)", portion: "1 bowl (100 g)", kcal: 95, p: 7.5, c: 15.0, f: 0.5 },
+      // Dairy, Paneer & Supplements
+      { name: "Paneer (Raw / Lightly Sautéed)", portion: "100 g", kcal: 265, p: 18.0, c: 3.5, f: 20.0 },
+      { name: "Low-Fat Curd / Dahi", portion: "1 bowl (150 g)", kcal: 90, p: 6.0, c: 7.5, f: 4.0 },
+      { name: "Toned Milk", portion: "250 ml glass", kcal: 150, p: 8.0, c: 12.0, f: 7.5 },
+      { name: "Whey Protein Isolate/Concentrate (in water)", portion: "1 scoop (30 g)", kcal: 120, p: 24.0, c: 3.0, f: 1.5 },
+      // Beverages & Cooking Fats
+      { name: "Chai with Milk & 1 tsp Sugar", portion: "1 cup (150 ml)", kcal: 95, p: 2.5, c: 14.0, f: 3.0 },
+      { name: "Black Coffee (No Sugar)", portion: "1 cup", kcal: 5, p: 0.3, c: 1.0, f: 0.0 },
+      { name: "Cooking Oil / Ghee / Butter", portion: "1 tsp (5 ml)", kcal: 45, p: 0.0, c: 0.0, f: 5.0 }
+    ];
+
+    const DEFAULT_HABITS = [
+      { id: "cal", label: "Stay within 1,799 kcal target" },
+      { id: "pro", label: "Hit ≥140–150g daily protein" },
+      { id: "walk", label: "3,000+ morning steps / workout" },
+      { id: "veg", label: "3L water + 2 servings veggies/fruit" },
+      { id: "weigh", label: "Morning fasted weigh-in & meal log" }
+    ];
+
+    function getLocalISODate(d = new Date()) {
+      const offset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - offset).toISOString().split('T')[0];
+    }
+
+    let activeDate = getLocalISODate();
+    let db = loadDB();
+
+    function loadDB() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try { return JSON.parse(raw); } catch (e) {}
+      }
+      return {
+        profile: {
+          sex: "Male",
+          age: 26,
+          heightCm: 178,
+          weightKg: 84.0,
+          targetWeightKg: 70.0,
+          activity: 1.2,
+          deficitPct: 18,
+          proteinPerKg: 1.79
+        },
+        foods: DEFAULT_FOODS,
+        habits: DEFAULT_HABITS,
+        days: {} // keyed by YYYY-MM-DD: { meals: [], habits: {}, weight: null }
+      };
+    }
+
+    function saveDB() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    }
+
+    function ensureDay(dateStr) {
+      if (!db.days[dateStr]) {
+        db.days[dateStr] = { meals: [], habits: {}, weight: null };
+      }
+      return db.days[dateStr];
+    }
+
+    function computeTargets() {
+      const p = db.profile;
+      const bmr = Math.round((10 * p.weightKg) + (6.25 * p.heightCm) - (5 * p.age) + 5);
+      const tdee = Math.round(bmr * p.activity);
+      const targetKcal = Math.round(tdee * (1 - p.deficitPct / 100));
+      const proteinG = 150; // Locked at 150g (~1.8g/kg for 84kg)
+      const fatG = 50;      // 450 kcal (~25%)
+      const carbsG = Math.max(0, Math.round((targetKcal - (proteinG * 4) - (fatG * 9)) / 4));
+      return { bmr, tdee, targetKcal, proteinG, carbsG, fatG, plannedDeficit: tdee - targetKcal };
+    }
+
+    function populatePresetDropdown() {
+      const sel = document.getElementById('presetFoodSelect');
+      sel.innerHTML = db.foods.map((f, i) =>
+        `<option value="${i}">${f.name} — ${f.portion} (${f.kcal} kcal | ${f.p}g P)</option>`
+      ).join('');
+    }
+
+    function changeDate(delta) {
+      const d = new Date(activeDate + "T00:00:00");
+      d.setDate(d.getDate() + delta);
+      activeDate = getLocalISODate(d);
+      renderAll();
+    }
+
+    function onDatePick(val) {
+      if (val) { activeDate = val; renderAll(); }
+    }
+
+    function goToday() {
+      activeDate = getLocalISODate();
+      renderAll();
+    }
+
+    function logPresetMeal() {
+      const idx = parseInt(document.getElementById('presetFoodSelect').value, 10);
+      const qty = parseFloat(document.getElementById('presetQty').value) || 1;
+      const addOil = document.getElementById('extraOilToggle').checked;
+      const item = db.foods[idx];
+      if (!item) return;
+
+      const day = ensureDay(activeDate);
+      const oilKcal = addOil ? 45 : 0;
+      const oilFat = addOil ? 5.0 : 0;
+
+      day.meals.push({
+        name: item.name + (addOil ? " (+1 tsp oil/ghee)" : ""),
+        portion: `${qty} × ${item.portion}`,
+        kcal: Math.round(item.kcal * qty + oilKcal),
+        p: +(item.p * qty).toFixed(1),
+        c: +(item.c * qty).toFixed(1),
+        f: +(item.f * qty + oilFat).toFixed(1)
+      });
+
+      document.getElementById('extraOilToggle').checked = false;
+      document.getElementById('presetQty').value = "1";
+      saveDB();
+      renderAll();
+    }
+
+    function logCustomMeal() {
+      const name = document.getElementById('custName').value.trim();
+      const portion = document.getElementById('custPortion').value.trim() || "1 serving";
+      const kcal = parseFloat(document.getElementById('custKcal').value) || 0;
+      const p = parseFloat(document.getElementById('custP').value) || 0;
+      const c = parseFloat(document.getElementById('custC').value) || 0;
+      const f = parseFloat(document.getElementById('custF').value) || 0;
+      if (!name) return alert("Please enter a food name.");
+
+      if (document.getElementById('saveCustomToPresets').checked) {
+        db.foods.unshift({ name, portion, kcal: Math.round(kcal), p: +p.toFixed(1), c: +c.toFixed(1), f: +f.toFixed(1) });
+        populatePresetDropdown();
+      }
+
+      const day = ensureDay(activeDate);
+      day.meals.push({ name, portion, kcal: Math.round(kcal), p: +p.toFixed(1), c: +c.toFixed(1), f: +f.toFixed(1) });
+
+      ['custName','custPortion','custKcal','custP','custC','custF'].forEach(id => document.getElementById(id).value = '');
+      saveDB();
+      renderAll();
+    }
+
+    function removeMeal(index) {
+      const day = ensureDay(activeDate);
+      day.meals.splice(index, 1);
+      saveDB();
+      renderAll();
+    }
+
+    function resetTodayLog() {
+      if (!confirm(`Clear all logged meals for ${activeDate}?`)) return;
+      ensureDay(activeDate).meals = [];
+      saveDB();
+      renderAll();
+    }
+
+    function toggleHabit(dateStr, habitId) {
+      const day = ensureDay(dateStr);
+      day.habits[habitId] = !day.habits[habitId];
+      saveDB();
+      renderAll();
+    }
+
+    function saveTodayWeight() {
+      const val = parseFloat(document.getElementById('weightInput').value);
+      if (!val || val < 35 || val > 250) return alert("Enter a valid weight in kg.");
+      ensureDay(activeDate).weight = +val.toFixed(1);
+      db.profile.weightKg = +val.toFixed(1);
+      saveDB();
+      renderAll();
+    }
+
+    function updateProfile() {
+      db.profile.weightKg = parseFloat(document.getElementById('profWeight').value) || 84;
+      db.profile.targetWeightKg = parseFloat(document.getElementById('profTargetWeight').value) || 70;
+      db.profile.activity = parseFloat(document.getElementById('profActivity').value) || 1.2;
+      db.profile.deficitPct = parseFloat(document.getElementById('profDeficit').value) || 18;
+      saveDB();
+      renderAll();
+    }
+
+    function getMondayOfWeek(dateStr) {
+      const d = new Date(dateStr + "T00:00:00");
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.setDate(diff));
+    }
+
+    function renderAll() {
+      document.getElementById('activeDateInput').value = activeDate;
+      const t = computeTargets();
+      const day = ensureDay(activeDate);
+
+      // Sync profile inputs
+      document.getElementById('profWeight').value = db.profile.weightKg;
+      document.getElementById('profTargetWeight').value = db.profile.targetWeightKg;
+      document.getElementById('profActivity').value = db.profile.activity;
+      document.getElementById('profDeficit').value = db.profile.deficitPct;
+      document.getElementById('weightInput').value = day.weight || '';
+
+      // Compute day totals
+      const totals = day.meals.reduce((acc, m) => ({
+        kcal: acc.kcal + m.kcal,
+        p: +(acc.p + m.p).toFixed(1),
+        c: +(acc.c + m.c).toFixed(1),
+        f: +(acc.f + m.f).toFixed(1)
+      }), { kcal: 0, p: 0, c: 0, f: 0 });
+
+      // Update Top Cards
+      document.getElementById('cardBmr').textContent = t.bmr.toLocaleString();
+      document.getElementById('cardTdee').textContent = t.tdee.toLocaleString();
+      document.getElementById('cardTarget').textContent = t.targetKcal.toLocaleString();
+      document.getElementById('cardDeficit').textContent = `-${t.plannedDeficit} kcal planned deficit`;
+      document.getElementById('cardConsumed').textContent = totals.kcal.toLocaleString();
+      document.getElementById('cardMealCount').textContent = day.meals.length;
+
+      const remKcal = t.targetKcal - totals.kcal;
+      const remEl = document.getElementById('cardRemaining');
+      if (remKcal >= 0) {
+        remEl.textContent = `${remKcal.toLocaleString()} kcal`;
+        remEl.className = "text-2xl font-bold text-emerald-400 mt-1";
+      } else {
+        remEl.textContent = `+${Math.abs(remKcal)} Over`;
+        remEl.className = "text-2xl font-bold text-rose-400 mt-1";
+      }
+      const actualDef = t.tdee - totals.kcal;
+      document.getElementById('cardActualDeficit').textContent =
+        actualDef >= 0 ? `Est. Deficit vs TDEE: -${actualDef} kcal` : `Est. Surplus vs TDEE: +${Math.abs(actualDef)} kcal`;
+
+      // Render Macro Dashboard Table
+      const metrics = [
+        { label: "Calories", unit: "kcal", val: totals.kcal, target: t.targetKcal, color: "bg-blue-500" },
+        { label: "Protein", unit: "g", val: totals.p, target: t.proteinG, color: "bg-emerald-500" },
+        { label: "Carbohydrates", unit: "g", val: totals.c, target: t.carbsG, color: "bg-amber-500" },
+        { label: "Fat", unit: "g", val: totals.f, target: t.fatG, color: "bg-purple-500" }
+      ];
+
+      document.getElementById('macroDashboardBody').innerHTML = metrics.map(m => {
+        const rem = +(m.target - m.val).toFixed(1);
+        const pct = Math.min(100, Math.round((m.val / (m.target || 1)) * 100));
+        const statusText = rem >= 0 ? `${rem} ${m.unit} left` : `Exceeded by ${Math.abs(rem)} ${m.unit}`;
+        const statusColor = rem >= 0 ? "text-slate-300" : "text-rose-400 font-semibold";
+        return `
+          <tr>
+            <td class="py-2.5 px-3 font-medium text-white">${m.label}</td>
+            <td class="py-2.5 px-3">${m.val} ${m.unit}</td>
+            <td class="py-2.5 px-3 text-slate-400">${m.target} ${m.unit}</td>
+            <td class="py-2.5 px-3 ${statusColor}">${statusText}</td>
+            <td class="py-2.5 px-3">
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="${rem < 0 && m.label !== 'Protein' ? 'bg-rose-500' : m.color} h-full transition-all" style="width:${pct}%"></div>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Observation Box
+      const obsEl = document.getElementById('dailyObservationBox');
+      if (day.meals.length === 0) {
+        obsEl.textContent = "Observation: No meals logged yet for this date. Prioritize 35–45g protein in your first meal (e.g., eggs, chicken, whey, or paneer/sprouts) to stay ahead of your 150g target.";
+      } else if (remKcal < 0) {
+        obsEl.textContent = `Observation: You have exceeded today's target by ${Math.abs(remKcal)} kcal. Do not starve yourself tomorrow—simply return to your normal 1,799 kcal plan at your next meal.`;
+      } else {
+        const remP = +(t.proteinG - totals.p).toFixed(1);
+        obsEl.textContent = `Observation: ${remKcal} kcal and ${Math.max(0, remP)} g protein remaining today. ${remP > 40 ? 'Focus your remaining calories on lean protein sources (egg whites, chicken breast, fish, low-fat curd, or whey).' : 'Protein intake is strong and on track for muscle preservation!'}`;
+      }
+
+      // Render Meal Log Table
+      const mealBody = document.getElementById('mealLogBody');
+      if (day.meals.length === 0) {
+        mealBody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-xs">No food logged for ${activeDate} yet.</td></tr>`;
+      } else {
+        mealBody.innerHTML = day.meals.map((m, idx) => `
+          <tr>
+            <td class="py-2 px-2 text-white font-medium">${m.name}</td>
+            <td class="py-2 px-2 text-slate-400 text-xs">${m.portion}</td>
+            <td class="py-2 px-2">${m.kcal} kcal</td>
+            <td class="py-2 px-2 text-emerald-400">${m.p} g</td>
+            <td class="py-2 px-2">${m.c} g</td>
+            <td class="py-2 px-2">${m.f} g</td>
+            <td class="py-2 px-2 text-right">
+              <button onclick="removeMeal(${idx})" class="text-rose-400 hover:text-rose-300 text-xs px-1.5">✕</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+      document.getElementById('mealLogFoot').innerHTML = `
+        <tr>
+          <td class="py-2.5 px-2">Meal Total</td>
+          <td class="py-2.5 px-2">—</td>
+          <td class="py-2.5 px-2">${totals.kcal} kcal</td>
+          <td class="py-2.5 px-2 text-emerald-400">${totals.p} g</td>
+          <td class="py-2.5 px-2">${totals.c} g</td>
+          <td class="py-2.5 px-2">${totals.f} g</td>
+          <td></td>
+        </tr>
+      `;
+
+      // Render Weekly Habit Grid & Streak Chart
+      renderWeeklyHabits();
+      // Render Weight History & 7d Rolling Average
+      renderWeightStats();
+    }
+
+    function renderWeeklyHabits() {
+      const mon = getMondayOfWeek(activeDate);
+      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const weekDates = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(mon);
+        d.setDate(d.getDate() + i);
+        return getLocalISODate(d);
+      });
+
+      document.getElementById('habitWeekHeader').innerHTML =
+        `<th class="py-2 px-2 text-left">Habit</th>` +
+        weekDates.map((dStr, i) => `<th class="py-2 px-1 ${dStr === activeDate ? 'text-blue-400 font-bold' : ''}">${dayNames[i]}<br><span class="text-[10px] opacity-75">${dStr.slice(8)}</span></th>`).join('') +
+        `<th class="py-2 px-1">Streak</th>`;
+
+      document.getElementById('habitGridBody').innerHTML = db.habits.map(h => {
+        let streak = 0;
+        weekDates.forEach(dStr => {
+          if (db.days[dStr]?.habits?.[h.id]) streak++;
+        });
+        return `
+          <tr>
+            <td class="py-2 px-2 text-left text-slate-200 font-medium">${h.label}</td>
+            ${weekDates.map(dStr => {
+              const checked = !!db.days[dStr]?.habits?.[h.id];
+              return `<td class="py-2 px-1">
+                <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleHabit('${dStr}', '${h.id}')" class="w-4 h-4 accent-blue-500 cursor-pointer" />
+              </td>`;
+            }).join('')}
+            <td class="py-2 px-1 font-bold text-emerald-400">${streak}/7</td>
+          </tr>
+        `;
+      }).join('');
+
+      // 7-Day Completion Bars
+      let totalChecks = 0;
+      const barsHtml = weekDates.map((dStr, i) => {
+        const doneCount = db.habits.filter(h => db.days[dStr]?.habits?.[h.id]).length;
+        totalChecks += doneCount;
+        const pct = Math.round((doneCount / db.habits.length) * 100);
+        return `
+          <div class="flex flex-col items-center h-full justify-end">
+            <span class="text-[10px] text-slate-400 mb-1">${pct}%</span>
+            <div class="w-full bg-slate-800 rounded-t h-16 flex items-end overflow-hidden">
+              <div class="w-full ${pct === 100 ? 'bg-emerald-500' : 'bg-blue-500'} transition-all" style="height:${pct}%"></div>
+            </div>
+            <span class="text-[10px] mt-1 ${dStr === activeDate ? 'text-blue-400 font-bold' : 'text-slate-400'}">${dayNames[i]}</span>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('streakChartBars').innerHTML = barsHtml;
+      const weekAvg = Math.round((totalChecks / (db.habits.length * 7)) * 100);
+      document.getElementById('weeklyAvgBadge').textContent = `${weekAvg}% Weekly Consistency`;
+    }
+
+    function renderWeightStats() {
+      const entries = Object.keys(db.days)
+        .filter(d => db.days[d].weight !== null && db.days[d].weight !== undefined)
+        .sort()
+        .reverse();
+
+      const recent7 = entries.slice(0, 7);
+      const avg = recent7.length
+        ? (recent7.reduce((s, d) => s + db.days[d].weight, 0) / recent7.length).toFixed(1)
+        : db.profile.weightKg.toFixed(1);
+
+      document.getElementById('cardWeightAvg').textContent = `${avg} kg`;
+      const toGo = Math.max(0, (avg - db.profile.targetWeightKg)).toFixed(1);
+      document.getElementById('cardWeightToGo').textContent = `${toGo} kg to ${db.profile.targetWeightKg} kg goal`;
+
+      const listEl = document.getElementById('weightHistoryList');
+      if (entries.length === 0) {
+        listEl.innerHTML = `<div class="text-slate-500">Baseline: 84.0 kg • Log morning weights to see rolling average.</div>`;
+      } else {
+        listEl.innerHTML = entries.slice(0, 10).map(d =>
+          `<div class="flex justify-between border-b border-slate-800/70 py-1"><span>${d}</span><span class="font-semibold text-purple-300">${db.days[d].weight} kg</span></div>`
+        ).join('');
+      }
+    }
+
+    function openSummaryModal() {
+      const t = computeTargets();
+      const day = ensureDay(activeDate);
+      const totals = day.meals.reduce((acc, m) => ({
+        kcal: acc.kcal + m.kcal, p: +(acc.p + m.p).toFixed(1), c: +(acc.c + m.c).toFixed(1), f: +(acc.f + m.f).toFixed(1)
+      }), { kcal: 0, p: 0, c: 0, f: 0 });
+
+      const actualDeficit = t.tdee - totals.kcal;
+      const remKcal = t.targetKcal - totals.kcal;
+
+      document.getElementById('summaryModalContent').innerHTML = `
+        <div class="p-3 bg-slate-900 rounded border border-slate-800 space-y-1">
+          <div><strong>Date:</strong> ${activeDate}</div>
+          <div><strong>Estimated Maintenance (TDEE):</strong> ${t.tdee} kcal</div>
+          <div><strong>Daily Calorie Target:</strong> ${t.targetKcal} kcal (Planned Deficit: -${t.plannedDeficit} kcal)</div>
+          <div><strong>Total Calories Consumed:</strong> ${totals.kcal} kcal (${remKcal >= 0 ? remKcal + ' kcal remaining' : 'Exceeded by ' + Math.abs(remKcal) + ' kcal'})</div>
+          <div><strong>Estimated Actual Balance vs Maintenance:</strong> ${actualDeficit >= 0 ? '-' + actualDeficit + ' kcal deficit' : '+' + Math.abs(actualDeficit) + ' kcal surplus'}</div>
+        </div>
+        <div>
+          <strong>Macros Consumed vs Targets:</strong>
+          <ul class="list-disc pl-5 mt-1 space-y-0.5">
+            <li>Protein: ${totals.p} g / ${t.proteinG} g (${+(t.proteinG - totals.p).toFixed(1)} g remaining)</li>
+            <li>Carbohydrates: ${totals.c} g / ${t.carbsG} g</li>
+            <li>Fat: ${totals.f} g / ${t.fatG} g</li>
+          </ul>
+        </div>
+        <div>
+          <strong>Assessment & Next-Day Suggestions:</strong>
+          <p class="mt-1 text-slate-300">${totals.p >= 135 ? 'Great job hitting high protein today—this protects lean mass while in a calorie deficit.' : 'Protein was below target today. Tomorrow, anchor lunch and dinner around 150g chicken breast, fish, 3–4 eggs, or a scoop of whey.'}</p>
+        </div>
+      `;
+      document.getElementById('summaryModal').classList.remove('hidden');
+      document.getElementById('summaryModal').classList.add('flex');
+    }
+
+    function closeSummaryModal() {
+      document.getElementById('summaryModal').classList.add('hidden');
+      document.getElementById('summaryModal').classList.remove('flex');
+    }
+
+    function exportCSV() {
+      let rows = ["Date,Food Item,Portion,Calories (kcal),Protein (g),Carbs (g),Fat (g),Morning Weight (kg)"];
+      Object.keys(db.days).sort().forEach(d => {
+        const day = db.days[d];
+        if (day.meals.length === 0 && day.weight) {
+          rows.push(`${d},"(Weight Log Only)","-",0,0,0,0,${day.weight}`);
+        }
+        day.meals.forEach(m => {
+          rows.push(`${d},"${m.name.replace(/"/g, '""')}","${m.portion}",${m.kcal},${m.p},${m.c},${m.f},${day.weight || ''}`);
+        });
+      });
+      const blob = new Blob([rows.join("\n")], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `fatloss_nutrition_log_${activeDate}.csv`;
+      a.click();
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `fatloss_backup_${activeDate}.json`;
+      a.click();
+    }
+
+    function importJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          db = JSON.parse(ev.target.result);
+          saveDB();
+          populatePresetDropdown();
+          renderAll();
+          alert("Database restored successfully!");
+        } catch (err) { alert("Invalid JSON backup file."); }
+      };
+      reader.readAsText(file);
+    }
+
+    populatePresetDropdown();
+    renderAll();
+  </script>
+</body>
+</html>
