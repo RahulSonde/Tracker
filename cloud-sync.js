@@ -141,6 +141,7 @@
 
       if (typeof populatePresetDropdown === 'function') populatePresetDropdown();
       if (typeof renderAll === 'function') renderAll();
+      if (typeof window.refreshStealthFromCloud === 'function') window.refreshStealthFromCloud();
 
       cloudCfg.lastSynced = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       saveCloudConfig(cloudCfg);

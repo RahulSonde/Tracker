@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tracker-pwa-v1';
+const CACHE_NAME = 'aura-tracker-pwa-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './food-api.js', './stealth.js', './cloud-sync.js'];
 
 self.addEventListener('install', (e) => {
@@ -7,9 +7,23 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
+// Network-First strategy so new GitHub commits load immediately on Android
 self.addEventListener('fetch', (e) => {
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });
