@@ -1,6 +1,7 @@
 /**
- * STEALTH RECOVERY & DAILY HABIT VAULT v2 (stealth.js)
- * Fixed: Re-reads localStorage whenever Cloud Sync pulls remote data from Firebase
+ * STEALTH RECOVERY & DAILY HABIT VAULT v3 (stealth.js)
+ * Fixed: Mobile close button on both PIN & Unlocked screens, global window.lockAndCloseVault,
+ *        and bottom-right trigger button now toggles open/close on tap.
  */
 
 (function () {
@@ -31,10 +32,12 @@
     localStorage.setItem(VAULT_STORAGE_KEY, encoded);
   }
 
-  // Hook called automatically by cloud-sync.js when remote Firestore data arrives
   window.refreshStealthFromCloud = function () {
     vaultDB = loadVaultDB();
-    if (isUnlocked) renderStealthContent();
+    const modal = document.getElementById('stealthVaultModal');
+    if (modal && !modal.classList.contains('hidden')) {
+      renderStealthContent();
+    }
   };
 
   function getCurrentShiftDate() {
@@ -102,46 +105,8 @@
     });
   }
 
-  function injectStealthUI() {
-    const triggerBtn = document.createElement('button');
-    triggerBtn.id = 'stealthTriggerBtn';
-    triggerBtn.className = 'fixed bottom-3 right-3 mono text-[10px] text-slate-500 hover:text-cyan-300 pill-glow px-2.5 py-1 rounded-full select-none z-40';
-    triggerBtn.textContent = 'sys v2.0-sync';
-    triggerBtn.title = 'System Diagnostics (Alt + S)';
-    triggerBtn.onclick = openStealthModal;
-    document.body.appendChild(triggerBtn);
-
-    const modal = document.createElement('div');
-    modal.id = 'stealthVaultModal';
-    modal.className = 'fixed inset-0 bg-black/85 hidden items-center justify-center p-4 z-50 backdrop-blur-xl';
-    modal.innerHTML = `
-      <div class="card max-w-2xl w-full p-5 space-y-5 max-h-[90vh] overflow-y-auto border border-white/15 shadow-2xl" onclick="event.stopPropagation()">
-        <div id="stealthModalInner"></div>
-      </div>
-    `;
-    modal.onclick = lockAndCloseVault;
-    document.body.appendChild(modal);
-
-    document.addEventListener('keydown', (e) => {
-      if (e.altKey && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        openStealthModal();
-      } else if (e.key === 'Escape') {
-        lockAndCloseVault();
-      }
-    });
-  }
-
-  function openStealthModal() {
-    // Always reload latest state from localStorage (in case cloud-sync updated it)
-    vaultDB = loadVaultDB();
-    const modal = document.getElementById('stealthVaultModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    renderStealthContent();
-  }
-
-  function lockAndCloseVault() {
+  // Expose globally so inline onclick="lockAndCloseVault()" works reliably on Android & Desktop
+  window.lockAndCloseVault = function () {
     isUnlocked = false;
     showExplicitNames = false;
     if (urgeTimerInterval) clearInterval(urgeTimerInterval);
@@ -150,6 +115,49 @@
       modal.classList.add('hidden');
       modal.classList.remove('flex');
     }
+  };
+
+  window.openStealthModal = function () {
+    const modal = document.getElementById('stealthVaultModal');
+    if (modal && !modal.classList.contains('hidden')) {
+      window.lockAndCloseVault();
+      return;
+    }
+    vaultDB = loadVaultDB();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    renderStealthContent();
+  };
+
+  function injectStealthUI() {
+    const triggerBtn = document.createElement('button');
+    triggerBtn.id = 'stealthTriggerBtn';
+    triggerBtn.className = 'fixed bottom-3 right-3 mono text-[10px] text-slate-500 hover:text-cyan-300 pill-glow px-3 py-1.5 rounded-full select-none z-[60]';
+    triggerBtn.textContent = 'sys v2.0-sync';
+    triggerBtn.title = 'System Diagnostics (Tap to toggle)';
+    triggerBtn.onclick = window.openStealthModal;
+    document.body.appendChild(triggerBtn);
+
+    const modal = document.createElement('div');
+    modal.id = 'stealthVaultModal';
+    modal.className = 'fixed inset-0 bg-black/85 hidden items-center justify-center p-3 sm:p-4 z-50 backdrop-blur-xl';
+    modal.innerHTML = `
+      <div class="card max-w-2xl w-full p-4 sm:p-5 space-y-4 max-h-[88vh] overflow-y-auto border border-white/15 shadow-2xl relative" onclick="event.stopPropagation()">
+        <div id="stealthModalInner"></div>
+      </div>
+    `;
+    // Tapping anywhere on the dark backdrop closes the vault
+    modal.addEventListener('click', window.lockAndCloseVault);
+    document.body.appendChild(modal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        window.openStealthModal();
+      } else if (e.key === 'Escape') {
+        window.lockAndCloseVault();
+      }
+    });
   }
 
   window.verifyVaultPin = function () {
@@ -260,25 +268,32 @@
     const container = document.getElementById('stealthModalInner');
     if (!container) return;
 
+    // 1. PIN SCREEN (With Explicit Close Button for Mobile)
     if (!isUnlocked) {
       container.innerHTML = `
-        <div class="py-6 text-center space-y-4">
+        <div class="flex justify-end">
+          <button onclick="lockAndCloseVault()" class="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-bold">
+            ✕ Close
+          </button>
+        </div>
+        <div class="py-4 text-center space-y-4">
           <div class="mono text-xs uppercase tracking-widest text-cyan-400">Encrypted System Telemetry</div>
           <h3 class="text-lg font-extrabold text-white">Enter Vault Passcode</h3>
           <div class="flex justify-center gap-2 max-w-xs mx-auto">
-            <input type="password" id="vaultPinInput" maxlength="8" placeholder="••••"
+            <input type="password" inputmode="numeric" id="vaultPinInput" maxlength="8" placeholder="••••"
               class="text-center text-lg tracking-widest w-36 mono"
-              onkeydown="if(event.key==='Enter') verifyVaultPin()" autofocus />
+              onkeydown="if(event.key==='Enter') verifyVaultPin()" />
             <button onclick="verifyVaultPin()" class="btn-neon-blue text-white text-xs font-bold px-4 py-2 rounded-xl">Unlock</button>
           </div>
           <div id="vaultPinError" class="text-xs text-rose-400 h-4"></div>
-          <p class="text-[11px] text-slate-500">Press Esc or tap outside to close</p>
+          <button onclick="lockAndCloseVault()" class="text-xs text-slate-400 underline pt-2">Cancel & Return to Dashboard</button>
         </div>
       `;
       setTimeout(() => document.getElementById('vaultPinInput')?.focus(), 50);
       return;
     }
 
+    // 2. UNLOCKED VAULT SCREEN
     const dStr = getCurrentShiftDate();
     const day = ensureVaultDay(dStr);
     const totalDaysLogged = Object.keys(vaultDB.days).length;
@@ -294,17 +309,17 @@
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
         <div>
           <div class="flex items-center gap-2">
-            <h3 class="text-base font-extrabold text-white">Stealth Recovery & Discipline Vault</h3>
-            <span class="mono text-[11px] bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full">☁️ ${totalDaysLogged}d Encrypted in DB</span>
+            <h3 class="text-base font-extrabold text-white">Stealth Recovery Vault</h3>
+            <span class="mono text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full">☁️ ${totalDaysLogged}d Synced</span>
           </div>
-          <p class="text-xs text-slate-400 mt-0.5">Active Shift Date: <strong class="mono text-cyan-300">${dStr}</strong> • Press <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-[10px]">Esc</kbd> to instant-lock</p>
+          <p class="text-xs text-slate-400 mt-0.5">Shift Date: <strong class="mono text-cyan-300">${dStr}</strong></p>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="toggleDisguiseLabels()" class="text-xs pill-glow hover:bg-white/10 text-slate-200 px-2.5 py-1.5 rounded-xl">
-            ${showExplicitNames ? '🙈 Disguise Labels' : '👁️ Reveal Labels'}
+            ${showExplicitNames ? '🙈 Disguise' : '👁️ Reveal'}
           </button>
-          <button onclick="(${lockAndCloseVault.toString()})()" class="text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 px-3 py-1.5 rounded-xl font-bold">
-            🔒 Lock
+          <button onclick="lockAndCloseVault()" class="text-xs bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-1.5 rounded-xl font-bold shadow-lg">
+            🔒 Close Vault
           </button>
         </div>
       </div>
@@ -441,6 +456,11 @@
           <button onclick="updateVaultSettings()" class="btn-neon-blue text-white font-bold py-2 rounded-xl">Save</button>
         </div>
       </details>
+
+      <!-- Full-width Bottom Mobile Close Button -->
+      <button onclick="lockAndCloseVault()" class="w-full py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white text-xs font-extrabold tracking-wide uppercase">
+        🔒 Lock & Close Vault
+      </button>
     `;
   }
 
