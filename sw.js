@@ -1,5 +1,5 @@
-const CACHE_NAME = 'aura-tracker-pwa-v2';
-const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './food-api.js', './stealth.js', './cloud-sync.js'];
+const CACHE_NAME = 'aura-tracker-pwa-v3';
+const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './food-api.js', './stealth.js', './cloud-sync.js','./ai-fit.js'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
